@@ -1,0 +1,2 @@
+# Normalize line endings so the repo stays clean across Windows/macOS/Linux clones.
+* text=auto eol=lf
