@@ -150,7 +150,14 @@ animate: { opacity: 1, y: 0,  filter: "blur(0px)" }
 Any looping animation must pause on hover, on `focus-within`, on touch-hold, and when off-screen.
 `prefers-reduced-motion` kills it outright. This is WCAG 2.2.2, and it is also just correct.
 
-→ Marquee implementation, scroll-scrub, reduced-motion strategy: `references/motion.md`
+All of that is a **contract, not a stack**. Reach for CSS first — hover, press, and marquees do not
+need a library, and CSS is the only option where the cheap path is also the default path. Add an
+engine when you need sequencing, scroll-linking, physics, or interruptible tweens, and know what it
+does *not* give you: most have no reduced-motion support and will animate `width` as readily as
+`transform`.
+
+→ Marquee, scroll-scrub, reduced motion, and a contract→mechanism map for CSS / Framer / GSAP /
+anime.js: `references/motion.md`
 
 ### 6. The inversion pass ← *the one nobody does*
 
@@ -235,5 +242,5 @@ If you cannot answer the last one, you have not finished.
 | `references/tokens.md` | Full `:root` contract, role naming, palette-pivot technique |
 | `references/typography.md` | `--screen-unit` scale, role classes, mobile overrides |
 | `references/surfaces-depth.md` | Borderless elevation, shadow ladder, context inversion |
-| `references/motion.md` | Motion tokens, reveals, accessible marquee, reduced motion |
+| `references/motion.md` | Motion tokens, reveals, accessible marquee, reduced motion, engine adapters |
 | `references/content.md` | Facts module, live state, banned copy, honest sections |

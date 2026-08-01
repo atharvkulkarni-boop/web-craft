@@ -166,10 +166,13 @@ onTouchEnd={()   => el.removeAttribute("data-touch-paused")}
 }
 ```
 
-**Intentional layer** — for library-driven motion, prefer degrading over deleting. Framer Motion's
-`<MotionConfig reducedMotion="user">` drops transforms while keeping opacity, so reveals still
-communicate arrival without vestibular movement. Users who set the flag want *less* motion, not a
-static page with no feedback.
+**Intentional layer** — for library-driven motion, prefer degrading over deleting. Users who set the
+flag want *less* motion, not a static page with no feedback: drop the translation, keep the opacity,
+and the reveal still communicates arrival without vestibular movement.
+
+Whether your engine does this for you is a selection criterion, not an afterthought. Framer Motion
+ships it (`<MotionConfig reducedMotion="user">` drops transforms and keeps opacity globally). Most
+engines do not, and you wire the degradation yourself — see the mapping below.
 
 Expose it as a hook for JS-driven decisions (skipping scroll-scrub, swapping video for poster):
 
@@ -189,13 +192,96 @@ export function usePrefersReducedMotion() {
 
 ---
 
+## Driving this from a library
+
+Everything above is a **contract**: one curve, three durations, transform and opacity only, a pause
+affordance on anything that loops, and a reduced-motion path. The contract does not care which engine
+satisfies it. What changes per engine is how much you get for free and how much you wire yourself.
+
+**Reach for CSS first.** Hover, press, and state transitions want `transition`, not a library. A
+keyframe loop with `animation-play-state` beats a JS ticker for a marquee — the compositor runs it off
+the main thread and `prefers-reduced-motion` reaches it without any code. Add an engine when you need
+sequencing, scroll-linking, physics, or interruptible tweens. Not before.
+
+### Contract → mechanism
+
+| Requirement | CSS | Framer Motion | GSAP | anime.js v4 |
+| --- | --- | --- | --- | --- |
+| One curve | `var(--ease)` | `ease` in a shared transition const | `defaults({ ease })` on a timeline | `ease` in shared params; **avoid mixing** the six ease families |
+| Three durations | `var(--dur-*)` | shared transition const | `defaults({ duration })` | `duration` in shared params |
+| Transform/opacity only | you must self-police | ditto | ditto | ditto — `animate()` takes *any* property |
+| Reveal on enter | — | `whileInView` + `viewport.once` | `ScrollTrigger` `once: true` | `IntersectionObserver` → `animation.play()` |
+| Pause when off-screen | `animation-play-state` + IO | `useInView` | `ScrollTrigger` toggles | IO → `.pause()` / `.play()` |
+| Reduced motion | media query reaches it free | `<MotionConfig reducedMotion="user">` | `gsap.matchMedia()` | **nothing built in — wire it** |
+
+The three right-hand columns share a property worth noticing: they will all happily animate `width`
+and `left`. Only CSS makes the cheap path also the default path.
+
+### anime.js v4 specifically
+
+Capable and small (10KB, or 3KB for the WAAPI build). It also removes every guardrail this file
+depends on, so if you pick it, adopt these four rules explicitly:
+
+| Rule | Why anime.js needs it stated |
+| --- | --- |
+| Transform and opacity only | `animate(el, { width: 400 })` is as ergonomic as the transform version, and nothing warns you |
+| One curve | It ships built-in eases, cubic Bézier, linear, steps, irregular, and spring — six families inviting per-animation improvisation. Pick one, put it in a shared params object |
+| Pause off-screen | `autoplay` defaults to `true`, so animations burn frames before anyone scrolls to them. Gate with `autoplay: false` + `IntersectionObserver` |
+| Reduced motion | The documentation contains no `prefers-reduced-motion` guidance. It is entirely on you |
+
+```js
+// Shared params — the single place the contract lives.
+const CONTRACT = { duration: 300, ease: "cubicBezier(0.22, 1, 0.36, 1)" };
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const reveal = animate(el, {
+  ...CONTRACT,
+  opacity: [0, 1],
+  translateY: reduced ? 0 : [16, 0],   // degrade the movement, keep the fade
+  autoplay: false,                      // ← never let it run unobserved
+});
+
+new IntersectionObserver(([e], io) => {
+  if (!e.isIntersecting) return;
+  reveal.play();
+  io.disconnect();                      // once: true, by hand
+}, { rootMargin: "-80px" }).observe(el);
+```
+
+Note how much of the contract is manual here versus the Framer snippet earlier in this file. That is
+the actual trade: smaller bundle, more discipline required. Fine if you write the discipline down —
+which is the whole thesis.
+
+API reference: <https://animejs.com/documentation/animation/>. Treat it as mechanism lookup only; it
+carries no design or accessibility guidance.
+
+---
+
 ## Scroll-driven motion
 
-- **Smooth scroll (Lenis et al.)** — set `html { scroll-behavior: auto }` and `.lenis-smooth
-  { scroll-behavior: auto !important }` or native smooth-scroll fights the library.
-- **Scrub, do not pin.** Driving video `currentTime` or a progress value from scroll keeps the user in
-  control. Multiple pinned sections fight each other and break scroll position restore.
-- Gate scrub on `prefers-reduced-motion` — fall back to a poster frame.
+Two decisions here, and both are commonly made by accident. Make them on purpose.
+
+**Do you need a smooth-scroll library at all?** Lenis, Locomotive and friends replace native scrolling
+with a rAF-interpolated transform. You get scroll-linked animation that never tears, and a page feel
+you cannot get natively. You also inherit: broken `scroll-behavior`, anchor-link and scroll-restoration
+quirks, accessibility risk if the interpolation lags input, and a hard dependency on the library
+staying maintained. **Default to native.** Adopt one only when the design genuinely depends on
+scroll-linked motion staying locked to the scrollbar.
+
+If you do adopt one, stop native smooth-scroll from fighting it:
+
+```css
+html { scroll-behavior: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+```
+
+**Scrub, do not pin.** Driving a video `currentTime` or a progress value from scroll position keeps
+the user in control of the page. Pinning takes that control away, and multiple pinned sections fight
+each other and break scroll-position restore. GSAP's `ScrollTrigger` is the mature choice for scrub —
+but note you are adding it *for scroll-linking*, not as a general animation engine. If it is only
+doing reveals, an `IntersectionObserver` and CSS will do the same job for none of the bundle.
+
+Gate any scrub on `prefers-reduced-motion` and fall back to a poster frame.
 
 ## Micro-interaction: the arrow link
 
@@ -219,3 +305,6 @@ Small, cheap, and unmistakably hand-made. The glyph travels independently of the
 - [ ] `prefers-reduced-motion` honored globally *and* intentionally
 - [ ] Continuous loops are `linear`; mobile durations lengthened
 - [ ] `will-change` only on genuinely continuous animations
+- [ ] Every animation library in the bundle earns its place — name what it does that CSS could not
+- [ ] If the engine has no reduced-motion support, the degradation is written down, not assumed
+- [ ] Nothing autoplays before it is on screen

@@ -42,7 +42,8 @@ The fix for each is the same shape: **decide it once, name it, write it down, ap
    contrast ratio in a comment beside every text role.
 3. **Type: one scale, real contrast, one gasp** — ≥5:1 display-to-body, exactly one ~10:1 moment.
 4. **Depth: pick a model, delete the borders** — two-part brand-tinted shadows, hover moves up a tier.
-5. **Motion: tokens, transform-only, an off switch** — one curve, three durations, a real pause contract.
+5. **Motion: tokens, transform-only, an off switch** — one curve, three durations, a real pause
+   contract, and an engine chosen on purpose rather than by habit.
 6. **The inversion pass** — fixed chrome crossing dark bands, *including focus rings*. Nobody does this one.
 7. **Content honesty** — one facts module, live state computed in the right timezone, zero invented
    reviews or guarantees.
@@ -62,7 +63,7 @@ Then run the slop audit in `SKILL.md`. Any *no* is a fix, not a note.
 | `references/tokens.md` | Full `:root` contract, role naming, palette-pivot technique |
 | `references/typography.md` | Viewport-unit scale, role classes, the tracking rule |
 | `references/surfaces-depth.md` | Borderless elevation, shadow ladder, context inversion |
-| `references/motion.md` | Motion tokens, reveals, accessible marquee, reduced motion |
+| `references/motion.md` | Motion tokens, reveals, accessible marquee, reduced motion, engine adapters |
 | `references/content.md` | Facts module, live state, banned copy, honest sections |
 
 ---
